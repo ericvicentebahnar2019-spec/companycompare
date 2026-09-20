@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AreaTabs } from "@/components/analysis/area-tabs";
 import { FindingsList } from "@/components/analysis/findings-list";
 import { NextAction } from "@/components/analysis/next-action";
+import { NextQuestions } from "@/components/analysis/next-question";
 import { RevenueBreakdown } from "@/components/analysis/revenue-breakdown";
 import {
   Badge,
@@ -15,6 +16,7 @@ import {
   PageHeader,
 } from "@/components/ui";
 import { loadAnalysis } from "@/lib/analysis/load";
+import { suggestNextData } from "@/lib/analysis/next-question";
 import { requireUser } from "@/lib/auth/session";
 import { requireMetric } from "@/lib/metrics/catalog";
 import { formatMetric, formatRelative } from "@/lib/metrics/format";
@@ -71,6 +73,13 @@ export default async function AnalysisPage({
       <div className="space-y-6">
         <NextAction
           result={result}
+          analysisId={id}
+          ownName={input.own.name}
+          rivalName={input.rival.name}
+        />
+
+        <NextQuestions
+          gaps={suggestNextData(result)}
           analysisId={id}
           ownName={input.own.name}
           rivalName={input.rival.name}

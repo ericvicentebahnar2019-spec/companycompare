@@ -217,6 +217,38 @@ export class PrismaStore implements DataStore {
     return rows.map(toCompany);
   }
 
+  async setMetricValue(
+    userId: string,
+    analysisId: string,
+    role: "own" | "rival",
+    input: { metricId: string; value: number | string | null; provenance: Provenance },
+  ): Promise<boolean> {
+    const analysis = await prisma.analysis.findFirst({
+      where: { id: analysisId, userId },
+      select: { ownCompanyId: true, rivalCompanyId: true },
+    });
+    if (!analysis) return false;
+
+    const companyId = role === "own" ? analysis.ownCompanyId : analysis.rivalCompanyId;
+
+    const data = {
+      value: typeof input.value === "number" ? input.value : null,
+      textValue: typeof input.value === "string" ? input.value : null,
+      provenance: TO_DB[input.value === null ? "unknown" : input.provenance],
+      note: null,
+    };
+
+    await prisma.metricValue.upsert({
+      where: {
+        analysisId_companyId_metricId: { analysisId, companyId, metricId: input.metricId },
+      },
+      create: { analysisId, companyId, metricId: input.metricId, ...data },
+      update: data,
+    });
+
+    return true;
+  }
+
   async listTasks(userId: string, analysisId: string): Promise<TaskRecord[]> {
     const rows = await prisma.actionTask.findMany({
       where: { analysisId, analysis: { userId } },

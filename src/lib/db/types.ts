@@ -1,4 +1,4 @@
-import type { MetricValueMap } from "@/lib/metrics/types";
+import type { MetricValueMap, Provenance } from "@/lib/metrics/types";
 
 export type Plan = "FREE" | "PRO" | "BUSINESS";
 export type TaskStatus = "PENDING" | "IN_PROGRESS" | "DONE" | "DISCARDED";
@@ -126,6 +126,20 @@ export interface DataStore {
   createAnalysis(userId: string, input: NewAnalysisInput, isDemo?: boolean): Promise<string>;
   deleteAnalysis(userId: string, analysisId: string): Promise<void>;
   listCompanies(userId: string): Promise<CompanyRecord[]>;
+
+  /**
+   * Añade o corrige el valor de una métrica dentro de un análisis.
+   *
+   * Permite completar un dato que faltaba sin rehacer el análisis entero, que
+   * es lo que hace viable pedirlos de uno en uno y solo cuando compensan.
+   * Devuelve `false` si el análisis no es de este usuario.
+   */
+  setMetricValue(
+    userId: string,
+    analysisId: string,
+    role: "own" | "rival",
+    input: { metricId: string; value: number | string | null; provenance: Provenance },
+  ): Promise<boolean>;
 
   listTasks(userId: string, analysisId: string): Promise<TaskRecord[]>;
   createTask(userId: string, analysisId: string, input: NewTaskInput): Promise<TaskRecord>;

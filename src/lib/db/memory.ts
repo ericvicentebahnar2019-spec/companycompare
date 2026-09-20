@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { DEMO_ANALYSIS, DEMO_HISTORY } from "@/data/demo";
+import type { Provenance } from "@/lib/metrics/types";
 import type {
   AnalysisSummary,
   CompanyRecord,
@@ -217,6 +218,29 @@ export class MemoryStore implements DataStore {
 
   async listCompanies(userId: string): Promise<CompanyRecord[]> {
     return tables.companies.filter((c) => c.userId === userId);
+  }
+
+  async setMetricValue(
+    userId: string,
+    analysisId: string,
+    role: "own" | "rival",
+    input: { metricId: string; value: number | string | null; provenance: Provenance },
+  ): Promise<boolean> {
+    const analysis = tables.analyses.find(
+      (a) => a.id === analysisId && a.userId === userId,
+    );
+    if (!analysis) return false;
+
+    const companyId = role === "own" ? analysis.ownCompanyId : analysis.rivalCompanyId;
+    const values = { ...(tables.companyValues.get(companyId) ?? {}) };
+    values[input.metricId] = {
+      metricId: input.metricId,
+      value: input.value,
+      provenance: input.value === null ? "unknown" : input.provenance,
+      note: null,
+    };
+    tables.companyValues.set(companyId, values);
+    return true;
   }
 
   async listTasks(userId: string, analysisId: string): Promise<TaskRecord[]> {
