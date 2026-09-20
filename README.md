@@ -184,16 +184,25 @@ registraría en una instancia y la siguiente petición, servida por otra, no
 encontraría su cuenta. La sesión se perdería sola y los análisis
 desaparecerían, de forma intermitente y difícil de diagnosticar.
 
-Así que un despliegue real necesita PostgreSQL desde el primer momento. Con
-Vercel Postgres o Neon:
+Así que un despliegue real necesita PostgreSQL desde el primer momento. En
+Vercel, pestaña **Storage** → *Create Database* → **Neon**: al vincularla al
+proyecto, Vercel añade `DATABASE_URL` sola.
 
-1. Crea la base de datos y copia su cadena de conexión.
-2. Añádela como `DATABASE_URL` en las variables de entorno del proyecto.
-3. Aplica el esquema: `npm run db:deploy` (o `npx prisma migrate deploy` con la
-   variable apuntando a la base de datos de producción).
+No hace falta aplicar el esquema a mano. El script `vercel-build` ejecuta
+`prisma migrate deploy` antes de compilar **solo si hay `DATABASE_URL`**:
 
-Con eso, `getStore()` cambia al adaptador de Prisma sin tocar una línea de
-código, y el aviso de «los datos viven en memoria» desaparece de la interfaz.
+```json
+"vercel-build": "if [ -n \"$DATABASE_URL\" ]; then prisma migrate deploy; fi && next build"
+```
+
+Así cada despliegue deja la base de datos al día por sí solo, y si una
+migración falla el despliegue se aborta en lugar de publicar una versión que
+espera unas tablas que no existen. Sin `DATABASE_URL` el paso se salta, de modo
+que el modo demo se sigue pudiendo desplegar sin base de datos.
+
+Con la variable puesta, `getStore()` cambia al adaptador de Prisma sin tocar
+una línea de código, y el aviso de «los datos viven en memoria» desaparece de
+la interfaz.
 
 Si solo quieres enseñar la demo y no te importa que los datos se pierdan,
 puedes desplegar sin `DATABASE_URL`, pero cuenta con que la sesión se caerá
