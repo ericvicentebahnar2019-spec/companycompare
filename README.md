@@ -159,6 +159,46 @@ del almacén en memoria. El esquema (`prisma/schema.prisma`) ya contempla
 usuarios, empresas, análisis, valores de métrica con su procedencia, hallazgos,
 hipótesis, recomendaciones, tareas e histórico de métricas.
 
+## Desplegar en Vercel
+
+El proyecto es Next.js estándar: Vercel lo detecta sin configuración y no hace
+falta `vercel.json`. Importa el repositorio desde el panel de Vercel y deja los
+ajustes de compilación por defecto.
+
+Lo único que hay que preparar son las variables de entorno, y **dos de ellas no
+son opcionales en producción**:
+
+| Variable | ¿Obligatoria? | Por qué |
+|---|---|---|
+| `AUTH_SECRET` | **Sí** | Firma las cookies de sesión. En producción la aplicación se niega a arrancar sin ella, en lugar de usar una clave conocida. Genera una con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. |
+| `DATABASE_URL` | **Sí** (ver abajo) | Sin ella se usa el almacén en memoria. |
+| `AI_PROVIDER` | No | `mock` por defecto. |
+| `ANTHROPIC_API_KEY` | Solo si `AI_PROVIDER=anthropic` | |
+
+### El almacén en memoria no sirve en Vercel
+
+Es la trampa importante. En local, el almacén en memoria funciona porque hay un
+único proceso que se mantiene vivo. En Vercel cada petición puede tocar una
+instancia distinta, y las instancias se reciclan solas: una persona se
+registraría en una instancia y la siguiente petición, servida por otra, no
+encontraría su cuenta. La sesión se perdería sola y los análisis
+desaparecerían, de forma intermitente y difícil de diagnosticar.
+
+Así que un despliegue real necesita PostgreSQL desde el primer momento. Con
+Vercel Postgres o Neon:
+
+1. Crea la base de datos y copia su cadena de conexión.
+2. Añádela como `DATABASE_URL` en las variables de entorno del proyecto.
+3. Aplica el esquema: `npm run db:deploy` (o `npx prisma migrate deploy` con la
+   variable apuntando a la base de datos de producción).
+
+Con eso, `getStore()` cambia al adaptador de Prisma sin tocar una línea de
+código, y el aviso de «los datos viven en memoria» desaparece de la interfaz.
+
+Si solo quieres enseñar la demo y no te importa que los datos se pierdan,
+puedes desplegar sin `DATABASE_URL`, pero cuenta con que la sesión se caerá
+sola cada pocos minutos.
+
 ## Qué falta para venderlo como SaaS
 
 Por orden de lo que bloquea antes:
