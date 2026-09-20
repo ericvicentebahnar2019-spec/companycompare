@@ -1,0 +1,261 @@
+// CompanyCompare — modelo de datos
+//
+// Un usuario puede tener varias empresas y varios análisis. Cada análisis
+// compara una empresa propia con un competidor en un momento dado y produce
+// hallazgos, hipótesis, recomendaciones y tareas.
+//
+// Toda consulta de la aplicación filtra por userId: un usuario nunca puede
+// leer datos de otro.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  PRO
+  BUSINESS
+}
+
+enum CompanyRole {
+  OWN
+  COMPETITOR
+}
+
+/// Origen de un dato. Nunca se infiere: se guarda tal y como se obtuvo.
+enum Provenance {
+  USER
+  PUBLIC
+  ESTIMATE
+  INFERENCE
+  DERIVED
+  UNKNOWN
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Confidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  DISCARDED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  plan         Plan     @default(FREE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  companies      Company[]
+  analyses       Analysis[]
+  passwordResets PasswordResetToken[]
+
+  @@index([email])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Company {
+  id        String      @id @default(cuid())
+  userId    String
+  name      String
+  role      CompanyRole
+  sector    String?
+  country   String?
+  sizeLabel String?
+  employees Int?
+  foundedAt Int?
+  website   String?
+  /// Marca los registros de la demo para poder distinguirlos de datos reales.
+  isDemo    Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ownAnalyses    Analysis[]       @relation("OwnCompany")
+  rivalAnalyses  Analysis[]       @relation("RivalCompany")
+  metricValues   MetricValue[]
+  snapshots      MetricSnapshot[]
+
+  @@index([userId])
+}
+
+model Analysis {
+  id              String   @id @default(cuid())
+  userId          String
+  ownCompanyId    String
+  rivalCompanyId  String
+  title           String
+  /// Nota del usuario sobre el contexto del análisis.
+  notes           String?
+  isDemo          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ownCompany   Company       @relation("OwnCompany", fields: [ownCompanyId], references: [id], onDelete: Cascade)
+  rivalCompany Company       @relation("RivalCompany", fields: [rivalCompanyId], references: [id], onDelete: Cascade)
+  metricValues MetricValue[]
+  findings     Finding[]
+  actionTasks  ActionTask[]
+
+  @@index([userId, createdAt])
+}
+
+/// Valor de una métrica para una empresa dentro de un análisis concreto.
+/// `value` nulo con provenance UNKNOWN es un dato que el usuario declaró no
+/// conocer: se muestra como desconocido, nunca se rellena.
+model MetricValue {
+  id         String     @id @default(cuid())
+  analysisId String
+  companyId  String
+  metricId   String
+  value      Float?
+  textValue  String?
+  provenance Provenance @default(USER)
+  note       String?
+
+  analysis Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([analysisId, companyId, metricId])
+  @@index([analysisId])
+}
+
+/// Una brecha relevante detectada entre las dos empresas.
+model Finding {
+  id         String   @id @default(cuid())
+  analysisId String
+  metricId   String
+  area       String
+  severity   Severity
+  /// Puntuación 0-100 y el texto que explica cómo se ha obtenido.
+  impactScore     Float
+  impactRationale String
+  ownValue        Float?
+  rivalValue      Float?
+  relativeGap     Float?
+  absoluteGap     Float?
+  createdAt       DateTime @default(now())
+
+  analysis        Analysis         @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  hypotheses      Hypothesis[]
+  recommendations Recommendation[]
+
+  @@index([analysisId])
+}
+
+/// Posible causa de un hallazgo. Siempre lleva evidencia, nivel de confianza
+/// y qué datos faltarían para confirmarla.
+model Hypothesis {
+  id         String     @id @default(cuid())
+  findingId  String
+  statement  String
+  rationale  String
+  confidence Confidence
+  /// Métricas que sostienen la hipótesis, en JSON: [{metricId, note}]
+  evidence   Json
+  /// Comprobaciones pendientes, en JSON: [{question, metricId?}]
+  checks     Json
+  createdAt  DateTime   @default(now())
+
+  finding Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@index([findingId])
+}
+
+/// Acción concreta recomendada para cerrar una brecha.
+model Recommendation {
+  id          String   @id @default(cuid())
+  findingId   String
+  title       String
+  summary     String
+  /// Pasos de ejecución, en JSON: string[]
+  steps       Json
+  cost        Severity
+  difficulty  Severity
+  impact      Severity
+  /// Por qué podría funcionar, sin garantizar resultados.
+  expectedEffect String
+  /// KPIs a vigilar, en JSON: string[] de metricId
+  kpis        Json
+  createdAt   DateTime @default(now())
+
+  finding Finding     @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  tasks   ActionTask[]
+
+  @@index([findingId])
+}
+
+/// Tarea del plan de acción, creada a partir de una recomendación.
+model ActionTask {
+  id               String     @id @default(cuid())
+  analysisId       String
+  recommendationId String?
+  title            String
+  notes            String?
+  week             Int        @default(1)
+  status           TaskStatus @default(PENDING)
+  priority         Priority   @default(MEDIUM)
+  dueDate          DateTime?
+  assignee         String?
+  completedAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  analysis       Analysis        @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  recommendation Recommendation? @relation(fields: [recommendationId], references: [id], onDelete: SetNull)
+
+  @@index([analysisId, week])
+}
+
+/// Foto de una métrica en una fecha, para el seguimiento de la evolución.
+model MetricSnapshot {
+  id         String     @id @default(cuid())
+  companyId  String
+  metricId   String
+  value      Float
+  provenance Provenance @default(USER)
+  recordedAt DateTime   @default(now())
+  note       String?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, metricId, recordedAt])
+}
