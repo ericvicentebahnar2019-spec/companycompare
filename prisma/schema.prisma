@@ -11,9 +11,18 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// `url` es la conexión agrupada (pooler), que es la correcta para las
+// consultas de la aplicación: muchas conexiones cortas desde funciones
+// serverless.
+//
+// `directUrl` es la conexión directa, y solo la usan las migraciones. Es
+// necesaria porque el pooler multiplexa sentencias entre conexiones, y las
+// migraciones necesitan una sesión estable: toman bloqueos de aviso y ejecutan
+// DDL que, a través del pooler, puede quedarse colgado o fallar a medias.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 enum Plan {
