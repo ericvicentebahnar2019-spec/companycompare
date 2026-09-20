@@ -254,6 +254,23 @@ model ActionTask {
   @@index([analysisId, week])
 }
 
+/// Registro de intentos para limitar la frecuencia de acciones sensibles.
+///
+/// Vive en la base de datos y no en memoria a propósito: en un despliegue
+/// serverless cada instancia tendría su propio contador, así que un límite en
+/// memoria se saltaría solo con que la petición cayera en otra instancia.
+///
+/// `key` guarda un HMAC de la IP o del email, nunca el valor en claro: para
+/// contar intentos basta con distinguirlos, no con saber de quién son.
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  bucket    String
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([bucket, key, createdAt])
+}
+
 /// Foto de una métrica en una fecha, para el seguimiento de la evolución.
 model MetricSnapshot {
   id         String     @id @default(cuid())

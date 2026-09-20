@@ -102,6 +102,19 @@ export class PrismaStore implements DataStore {
     return token.userId;
   }
 
+  async recordAttempt(bucket: string, key: string, windowMs: number): Promise<number> {
+    const since = new Date(Date.now() - windowMs);
+
+    // Se purga al contar: la tabla no crece sin límite y no hace falta ninguna
+    // tarea periódica que la mantenga.
+    await prisma.rateLimitHit.deleteMany({ where: { createdAt: { lt: since } } });
+    await prisma.rateLimitHit.create({ data: { bucket, key } });
+
+    return prisma.rateLimitHit.count({
+      where: { bucket, key, createdAt: { gte: since } },
+    });
+  }
+
   async listAnalyses(userId: string): Promise<AnalysisSummary[]> {
     const rows = await prisma.analysis.findMany({
       where: { userId },

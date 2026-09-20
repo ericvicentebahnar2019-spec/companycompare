@@ -33,6 +33,7 @@ interface Tables {
   tasks: TaskRecord[];
   snapshots: SnapshotRecord[];
   resets: { tokenHash: string; userId: string; expiresAt: number; used: boolean }[];
+  attempts: { bucket: string; key: string; at: number }[];
 }
 
 /**
@@ -56,6 +57,7 @@ function createTables(): Tables {
     tasks: [],
     snapshots: [],
     resets: [],
+    attempts: [],
   };
 }
 
@@ -114,6 +116,18 @@ export class MemoryStore implements DataStore {
     if (!reset || reset.used || reset.expiresAt < Date.now()) return null;
     reset.used = true;
     return reset.userId;
+  }
+
+  async recordAttempt(bucket: string, key: string, windowMs: number): Promise<number> {
+    const now = Date.now();
+    const since = now - windowMs;
+
+    // Se purga al contar: así la tabla no crece sin límite y no hace falta
+    // ninguna tarea periódica.
+    tables.attempts = tables.attempts.filter((a) => a.at >= since);
+    tables.attempts.push({ bucket, key, at: now });
+
+    return tables.attempts.filter((a) => a.bucket === bucket && a.key === key).length;
   }
 
   async listAnalyses(userId: string): Promise<AnalysisSummary[]> {

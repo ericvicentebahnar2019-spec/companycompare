@@ -119,6 +119,14 @@ export interface DataStore {
   updateUserPassword(userId: string, passwordHash: string): Promise<void>;
 
   createPasswordReset(userId: string, tokenHash: string, expiresAt: Date): Promise<void>;
+
+  /**
+   * Registra un intento y devuelve cuántos van en la ventana.
+   *
+   * El contador vive en el almacén, no en el proceso: en serverless cada
+   * instancia tendría el suyo y el límite no serviría de nada.
+   */
+  recordAttempt(bucket: string, key: string, windowMs: number): Promise<number>;
   consumePasswordReset(tokenHash: string): Promise<string | null>;
 
   listAnalyses(userId: string): Promise<AnalysisSummary[]>;
