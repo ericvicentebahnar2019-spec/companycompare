@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AreaTabs } from "@/components/analysis/area-tabs";
 import { FindingsList } from "@/components/analysis/findings-list";
+import { NextAction } from "@/components/analysis/next-action";
 import { RevenueBreakdown } from "@/components/analysis/revenue-breakdown";
 import {
   Badge,
@@ -46,7 +47,7 @@ export default async function AnalysisPage({
       <PageHeader
         eyebrow={`${input.own.name} frente a ${input.rival.name}`}
         title={stored.title}
-        description={`Creado el ${new Date(stored.createdAt).toLocaleDateString("es-ES")}. ${result.findings.length} diferencias por encima del umbral: ${bySeverity.high} de impacto alto, ${bySeverity.medium} medio y ${bySeverity.low} bajo.`}
+        description={`Creado el ${new Date(stored.createdAt).toLocaleDateString("es-ES")}.`}
         action={
           <div className="flex flex-wrap gap-2">
             <ButtonLink href={`/analisis/${id}/plan`} variant="secondary">
@@ -68,6 +69,13 @@ export default async function AnalysisPage({
       ) : null}
 
       <div className="space-y-6">
+        <NextAction
+          result={result}
+          analysisId={id}
+          ownName={input.own.name}
+          rivalName={input.rival.name}
+        />
+
         <Card>
           <CardHeader
             title="Resumen ejecutivo"
@@ -99,7 +107,7 @@ export default async function AnalysisPage({
         <Card>
           <CardHeader
             title="¿Dónde estamos perdiendo ventaja?"
-            description="Diferencias que superan el umbral de materialidad de su métrica, ordenadas por impacto."
+            description={`${result.findings.length} diferencias superan el umbral de su métrica: ${bySeverity.high} de impacto alto, ${bySeverity.medium} medio y ${bySeverity.low} bajo. Ordenadas por impacto.`}
           />
           {result.findings.length === 0 ? (
             <EmptyState

@@ -1,21 +1,7 @@
-"use client";
-
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
-
-import { Badge, Button, Card, cx } from "@/components/ui";
-import { addRecommendationToPlan } from "@/lib/actions/tasks";
+import { AddToPlan } from "@/components/analysis/add-to-plan";
+import { Badge, Card } from "@/components/ui";
 import { LEVEL_LABEL, LEVEL_LABEL_F, type Level, type Recommendation } from "@/lib/analysis/types";
 import { getMetric } from "@/lib/metrics/catalog";
-
-function AddButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" variant="secondary" disabled={pending}>
-      {pending ? "Añadiendo…" : "Añadir al plan de acción"}
-    </Button>
-  );
-}
 
 const LEVEL_TONE: Record<Level, "good" | "warning" | "critical"> = {
   low: "good",
@@ -35,8 +21,6 @@ export function RecommendationCard({
   recommendation: Recommendation;
   analysisId: string;
 }) {
-  const [state, formAction] = useActionState(addRecommendationToPlan, {});
-
   return (
     <Card className="bg-surface">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -94,26 +78,9 @@ export function RecommendationCard({
         </div>
       ) : null}
 
-      <form action={formAction} className="mt-5 flex flex-wrap items-center gap-3">
-        <input type="hidden" name="analysisId" value={analysisId} />
-        <input type="hidden" name="recommendationId" value={recommendation.id} />
-        <input type="hidden" name="title" value={recommendation.title} />
-        {recommendation.steps.map((step) => (
-          <input key={step} type="hidden" name="step" value={step} />
-        ))}
-        <AddButton />
-        {state.message || state.error ? (
-          <span
-            role="status"
-            className={cx(
-              "text-sm",
-              state.error ? "text-[var(--critical)]" : "text-[var(--good-text)]",
-            )}
-          >
-            {state.error ?? state.message}
-          </span>
-        ) : null}
-      </form>
+      <div className="mt-5">
+        <AddToPlan recommendation={recommendation} analysisId={analysisId} />
+      </div>
     </Card>
   );
 }

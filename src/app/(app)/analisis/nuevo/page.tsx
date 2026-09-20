@@ -10,7 +10,7 @@ export default function NewAnalysisPage() {
     <>
       <PageHeader
         title="Nuevo análisis"
-        description="Introduce los datos de tu empresa y los del competidor con el que quieres compararte. No hace falta tenerlo todo: lo que falte se marca como desconocido."
+        description="Tres números de tu empresa y tres del competidor bastan para empezar. Lo que no sepas de la competencia puedes marcarlo como desconocido: el análisis lo tendrá en cuenta en lugar de inventarlo."
       />
       <NewAnalysisForm />
     </>
